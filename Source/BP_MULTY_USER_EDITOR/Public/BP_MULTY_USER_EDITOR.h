@@ -1,0 +1,70 @@
+﻿// Copyright Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+#include "CoreMinimal.h"
+#include "Modules/ModuleManager.h"
+#include <Kismet/Private/SGraphTitleBar.h>
+#include <Engine/Public/GraphEditAction.h>
+//#include <HPTcpSocketPlugin/Private/TcpServer/HPTcpServerManager.h>
+#include <Developer/ToolMenus/Public/ToolMenuDelegates.h>
+#include "BlueprintEditorContext.h"
+#include "SBlueprintEditorToolbar.h"
+#include "BlueprintEditor.h"
+
+
+class FBlueprintEditor;
+class FToolBarBuilder;
+class FMenuBuilder;
+class FMultiBoxBuilder;
+class UTCP_MUE_BP;
+
+class FBP_MULTY_USER_EDITORModule : public IModuleInterface
+{
+public:
+
+	/** IModuleInterface implementation */
+	virtual void StartupModule() override;
+	virtual void ShutdownModule() override;
+	
+	/** This function will be bound to Command. */
+	void PluginButtonClicked();
+
+	//TArray<TSharedRef<SGraphPanel>> FindSGraphPanel();
+	
+private:
+	TArray<TSharedRef<SGraphEditor>> FindSGraphPanel();
+	TArray<TSharedRef<SStandaloneAssetEditorToolkitHost>> FindAssetEditorToolkitHost();
+	TArray<TSharedRef<SGraphTitleBar>> FindGraphTitleBar();
+	UFUNCTION()
+	void PropertyChanged(const FPropertyChangedEvent& a, const FString& b);
+	void GraphChanged(const FEdGraphEditAction& a);
+
+	FOnGraphChanged::FDelegate DelegateGraphChanged;
+	FOnPropertyChanged::FDelegate DelegatePropertyChanged;
+	FOnGraphChanged OnGraphChanged;
+	/*
+	FOnAccept HPtcpOnAccept;
+	FOnServerReceiveMessage HPtcpOnReceiveMessage;
+	FOnServerReceiveBytes  HPtcpOnReceiveBytes;
+	FOnServerClose HPtcpOnClose;
+	FOnShotDown HPtcpOnShotDown;
+	*/
+	UAssetEditorSubsystem* AssetEditorSubsystem = nullptr;
+	UAssetEditorSubsystem::FOnAssetOpenedInEditorEvent AssetOpenedInEditorEvent;
+
+	FToolUIActionChoice D_ToolUIActionChoice;
+	FNewToolMenuChoice D_NewToolMenuChoice;
+	TAttribute<FText> LabelComboButton = TAttribute < FText>(FText::FromString("MUE_BP"));
+	TAttribute<FText> ToolTipComboButton = TAttribute < FText>(FText::FromString("MUE_BP"));
+
+	void onAssetOpenedInEditor(UObject* obj);
+	static TSharedRef<SWidget> MakeMUE_BPMenu();
+	/*UHPTcpServerManager* HPTcpServerManager;*/
+	TArray<TSharedRef<SWidget>> GetAllChildrenFromAll(TSharedRef<SWidget> widget);
+
+	UTCP_MUE_BP* TcpObject = nullptr;
+	void RegisterMenus();
+
+private:
+	TSharedPtr<class FUICommandList> PluginCommands;
+};
