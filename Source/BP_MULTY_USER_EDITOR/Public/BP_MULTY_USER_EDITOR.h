@@ -10,6 +10,7 @@
 #include "BlueprintEditorContext.h"
 #include "SBlueprintEditorToolbar.h"
 #include "BlueprintEditor.h"
+#include "TCP_MUE_BP.h"
 
 
 class FBlueprintEditor;
@@ -42,13 +43,7 @@ private:
 	FOnGraphChanged::FDelegate DelegateGraphChanged;
 	FOnPropertyChanged::FDelegate DelegatePropertyChanged;
 	FOnGraphChanged OnGraphChanged;
-	/*
-	FOnAccept HPtcpOnAccept;
-	FOnServerReceiveMessage HPtcpOnReceiveMessage;
-	FOnServerReceiveBytes  HPtcpOnReceiveBytes;
-	FOnServerClose HPtcpOnClose;
-	FOnShotDown HPtcpOnShotDown;
-	*/
+
 	UAssetEditorSubsystem* AssetEditorSubsystem = nullptr;
 	UAssetEditorSubsystem::FOnAssetOpenedInEditorEvent AssetOpenedInEditorEvent;
 
@@ -58,11 +53,15 @@ private:
 	TAttribute<FText> ToolTipComboButton = TAttribute < FText>(FText::FromString("MUE_BP"));
 
 	void onAssetOpenedInEditor(UObject* obj);
-	static TSharedRef<SWidget> MakeMUE_BPMenu();
+	TSharedRef<SWidget> MakeMUE_BPMenu();
 	/*UHPTcpServerManager* HPTcpServerManager;*/
 	TArray<TSharedRef<SWidget>> GetAllChildrenFromAll(TSharedRef<SWidget> widget);
-
-	UTCP_MUE_BP* TcpObject = nullptr;
+public:
+	UPROPERTY()
+	UTCP_MUE_BP* TcpServerObject;
+	
+	void UIStartServer();
+	
 	void RegisterMenus();
 
 private:

@@ -37,6 +37,7 @@ void UTCP_MUE_BP::Close()
 		ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->DestroySocket(RecSocket);
 		RecSocket = nullptr;
 	}
+	GEditor->GetTimerManager()->ClearTimer(ConnectCheckHandler);
 }
 void UTCP_MUE_BP::SendData(FString Message)
 {
@@ -49,7 +50,10 @@ void UTCP_MUE_BP::ConnectTickCheck()
 {
 	
 	//FPlatformProcess::Sleep(1.0f);
-
+if(!Socket)
+{
+	UE_LOG(LogTemp, Warning, TEXT("ERROR SOCKET"));
+}
 	bool bPending = false;
 	if (Socket->HasPendingConnection(bPending) && bPending)
 	{
@@ -85,6 +89,7 @@ bool UTCP_MUE_BP::CreateServer(const FString& IP, int32 Port, int32 ReceiveSize,
 			.Listening(8)
 			.WithReceiveBufferSize(SendDataSize)
 			.WithSendBufferSize(RecDataDize);
+	
 	if (!Socket)
 	{
 		UE_LOG(LogTemp, Error, TEXT("Create  Socket Error!"));
@@ -92,11 +97,10 @@ bool UTCP_MUE_BP::CreateServer(const FString& IP, int32 Port, int32 ReceiveSize,
 	}
 	else
 	{
-		/*AsyncTask(ENamedThreads::GameThread, [this]()
-		{
-		GetWorld()->GetTimerManager().SetTimer(ConnectCheckHandler, this, &UTCP_MUE_BP::ConnectTickCheck, 1, true);
-		});*/
+
 		GEditor->GetTimerManager()->SetTimer(ConnectCheckHandler, this, &UTCP_MUE_BP::ConnectTickCheck, 1, true);
+
+
 		return true;
 	}
 }

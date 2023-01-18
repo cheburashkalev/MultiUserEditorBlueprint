@@ -1,15 +1,20 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "BP_MULTY_USER_EDITOR.h"
+
 #include "Misc/MessageDialog.h"
 #include "ToolMenus.h"
 #include <Editor/UnrealEd/Private/Toolkits/SStandaloneAssetEditorToolkitHost.h>
 #include "BP_MULTY_USER_EDITORStyle.h"
+#include "EditorConfigSubsystem.h"
 #include "TCP_MUE_BP.h"
 #include "UObject/UObjectBaseUtility.h"
 #include "Logging/MessageLog.h"
 #include "Framework/MultiBox/MultiBoxBuilder.h"
 #include "Async/Async.h"
+#include "MUE_Settings.h"
+#include "Kismet/KismetStringLibrary.h"
+#include "Types/SlateEnums.h"
 
 static const FName BP_MULTI_USER_EDITORTabName("BP_MULTY_USER_EDITOR");
 
@@ -20,13 +25,9 @@ void FBP_MULTY_USER_EDITORModule::StartupModule()
 	FBP_MULTY_USER_EDITORStyle::ReloadTextures();
 	
 	AssetEditorSubsystem = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>();
+
 	AssetEditorSubsystem->OnAssetEditorOpened().AddRaw(this, &FBP_MULTY_USER_EDITORModule::onAssetOpenedInEditor);
 	
-	AsyncTask(ENamedThreads::GameThread, [&]()
-	{
-		TcpObject = NewObject<UTCP_MUE_BP>();
-		TcpObject->CreateServer("127.0.0.1",5060);
-	});
 	UE_LOG(LogTemp, Log, TEXT("PLUGIN_MUED_started"));
 }
 
@@ -209,12 +210,52 @@ TSharedRef<SWidget> FBP_MULTY_USER_EDITORModule::MakeMUE_BPMenu()
 	// Create a Submenu inside of the Section*/
 	MenuBuilder.BeginSection("ServerSettings", TAttribute(FText::FromString("Server/Settings")));
 	FNewMenuDelegate DelegateNewServerMenu;
-	DelegateNewServerMenu.BindLambda([](class FMenuBuilder& SubMenuBuilder) 
+	
+	
+	DelegateNewServerMenu.BindLambda([&](class FMenuBuilder& SubMenuBuilder) 
     {
-
-           SubMenuBuilder.AddEditableText(FText::FromString("ip:port"), FText(), FSlateIcon(), TAttribute< FText >(), FOnTextCommitted(), FOnTextChanged(), false);
-           SubMenuBuilder.AddMenuEntry(LOCTEXT("EnableServer", "EnableServer"),
-		 FText(), FSlateIcon(), FUIAction());
+        
+		//GEditor->GetEditorSubsystem<UEditorConfigSubsystem>()->LoadConfigObject(TcpServerSetting->GetClass(), TcpServerSetting);
+		SubMenuBuilder.AddEditableText(FText::FromString("ip:port"),
+			FText(),
+			FSlateIcon(),
+			TAttribute< FText >(FText::FromString(NewObject<UMUE_Settings>()->LoadConfig()->ip_port)),
+			FOnTextCommitted::CreateLambda([&](const FText text,ETextCommit::Type EnumCommit)
+			{
+				UMUE_Settings* TcpServerSetting = NewObject<UMUE_Settings>();
+				TcpServerSetting->ip_port = text.ToString();
+				TcpServerSetting->SaveConfig();
+			}),
+			FOnTextChanged(),
+			IsValid(TcpServerObject));
+		
+		SubMenuBuilder.AddMenuEntry(IsValid(TcpServerObject)? LOCTEXT("DisableServer", "DisableServer"):LOCTEXT("EnableServer", "EnableServer"),
+		FText(), FSlateIcon(),
+		FUIAction(
+		FExecuteAction::CreateLambda([&]()
+		{
+			if(IsValid (TcpServerObject))
+			{
+				TcpServerObject->ConditionalBeginDestroy();
+				TcpServerObject = nullptr;
+			}
+			else
+			{
+				TcpServerObject = NewObject<UTCP_MUE_BP>();
+				
+				FString S_ip;
+				FString S_Port;
+				NewObject<UMUE_Settings>()->LoadConfig()->ip_port.Split(":",&S_ip,&S_Port);
+				FString ip = S_ip;
+				int32 port = UKismetStringLibrary::Conv_StringToInt(*S_Port);
+				TcpServerObject->CreateServer(ip,port);
+				UE_LOG(LogTemp, Log, TEXT("UIStartServer"));
+			}
+		}),
+			FCanExecuteAction(),
+				FGetActionCheckState::CreateLambda([&](){return IsValid (TcpServerObject) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked ;})
+				),
+		 FName(),EUserInterfaceActionType::RadioButton);
     });
 
     MenuBuilder.AddSubMenu(FText::FromString("ServerSettings"),FText::FromString("Settings TCP Server your editor"),DelegateNewServerMenu);
@@ -251,7 +292,7 @@ if(nameclass != "Blueprint")
 	FToolMenuSection& Section = Menu->FindOrAddSection("MUE_BP");
 
 
-	Section.AddDynamicEntry("MUE_BP", FNewToolMenuSectionDelegate::CreateLambda([](FToolMenuSection& InSection)
+	Section.AddDynamicEntry("MUE_BP", FNewToolMenuSectionDelegate::CreateLambda([&](FToolMenuSection& InSection)
 		{
 	        const UBlueprintEditorToolMenuContext* Context = InSection.FindContext<UBlueprintEditorToolMenuContext>();
 	        if (Context && Context->BlueprintEditor.IsValid() && Context->GetBlueprintObj())
@@ -263,7 +304,7 @@ if(nameclass != "Blueprint")
 	        		FToolMenuEntry DiffEntry = FToolMenuEntry::InitComboButton(
 	        			"MUE_BP",
 	        			FUIAction(), 
-	        			FOnGetContent::CreateStatic(&FBP_MULTY_USER_EDITORModule::MakeMUE_BPMenu),
+	        			FOnGetContent::CreateRaw(this,&FBP_MULTY_USER_EDITORModule::MakeMUE_BPMenu),
 	        			LOCTEXT("MUE_BP", "MUE_BP"),
 	        			LOCTEXT("BP_MULTY_USER_EDITORToolTip", "Multy user editing for blueprints"),
 						FSlateIcon("BP_MULTY_USER_EDITORStyle", "BP_MULTY_USER_EDITOR.PluginAction")
@@ -274,6 +315,12 @@ if(nameclass != "Blueprint")
 	        }
 		}));
 }
+
+void FBP_MULTY_USER_EDITORModule::UIStartServer()
+{
+
+}
+
 void FBP_MULTY_USER_EDITORModule::RegisterMenus()
 {
 	

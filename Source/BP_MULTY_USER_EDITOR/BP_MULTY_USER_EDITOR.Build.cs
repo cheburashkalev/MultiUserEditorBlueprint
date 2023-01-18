@@ -28,7 +28,7 @@ public class BP_MULTY_USER_EDITOR : ModuleRules
 			new string[]
 			{
 				"Core",
-				"SimpleTCPCS"
+				"DeveloperSettings"
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
@@ -37,7 +37,7 @@ public class BP_MULTY_USER_EDITOR : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-
+				"EditorConfig",
 				"Projects",
 				"InputCore",
 				"EditorFramework",
