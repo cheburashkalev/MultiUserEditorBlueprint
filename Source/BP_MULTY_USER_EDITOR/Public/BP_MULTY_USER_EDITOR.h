@@ -59,7 +59,8 @@ private:
 public:
 	UPROPERTY()
 	UTCP_MUE_BP* TcpServerObject;
-	
+	UPROPERTY()
+	UTCP_MUE_BP* TcpClientObject;
 	void UIStartServer();
 	
 	void RegisterMenus();

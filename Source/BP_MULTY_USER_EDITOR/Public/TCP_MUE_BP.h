@@ -62,6 +62,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Network)
 		bool CreateServer(const FString& IP, int32 Port, int32 ReceiveSize = 1024, int32 SendSize = 1024);
 
+	void ConnectServer(const FString& IP, int32 Port);
+	UFUNCTION(BlueprintCallable, Category = Network)
+	bool CreateClient(const FString& IP, int32 Port, int32 ReceiveSize = 1024, int32 SendSize = 1024);
+
 	UFUNCTION(BlueprintCallable, Category = Network)
 		void SendData(FString Message);
 

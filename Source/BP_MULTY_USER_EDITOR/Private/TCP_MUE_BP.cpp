@@ -3,6 +3,7 @@
 
 #include "TCP_MUE_BP.h"
 
+
 #include "Async/Async.h"
 
 UTCP_MUE_BP::UTCP_MUE_BP(const FObjectInitializer& ObjectInitializer)
@@ -103,6 +104,65 @@ bool UTCP_MUE_BP::CreateServer(const FString& IP, int32 Port, int32 ReceiveSize,
 
 		return true;
 	}
+}
+
+void UTCP_MUE_BP::ConnectServer(const FString& IP, int32 Port)
+{
+
+	AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [&]()
+		  {
+			FIPv4Endpoint ServerEndpoint;
+			FIPv4Endpoint::Parse(IP, ServerEndpoint);
+			TSharedPtr<FInternetAddr> addr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
+			bool Success = true;
+			addr->SetIp(*IP, Success);
+			if (!Success)
+			{
+				ConnectedResultDelegate.Broadcast(false);
+				return;
+			}
+			addr->SetPort(Port);
+
+			if (!bShutDown && Socket->Connect(*addr))
+			{
+				UTCP_MUE_RSThread* RSThread = NewObject<UTCP_MUE_RSThread>();
+				RecThreads.Add(RSThread);
+				RSThread->ReceiveSocketDataDelegate = ReceiveSocketDataDelegate;
+				RSThread->LostConnectionDelegate.AddDynamic(this, &UTCP_MUE_BP::OnDisConnected);
+				RSThread->StartThread(Socket, SendDataSize, RecDataDize);
+				UE_LOG(LogTemp, Warning, TEXT("Client Connect Success"));
+				if (ConnectedResultDelegate.IsBound())
+				{
+					ConnectedResultDelegate.Broadcast(true);
+				}
+			    
+			}
+			else
+			{
+				ESocketErrors LastErr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetLastErrorCode();
+
+				UE_LOG(LogTemp, Warning, TEXT("Connect failed with error code (%d) error (%s)"), LastErr, ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetSocketError(LastErr));
+				if (!bShutDown && ConnectedResultDelegate.IsBound())
+				{
+					ConnectedResultDelegate.Broadcast(false);
+				}
+			}
+		 // bConnecting = false;
+			return;
+		  });
+	
+}
+
+bool UTCP_MUE_BP::CreateClient(const FString& IP, int32 Port, int32 ReceiveSize, int32 SendSize)
+{
+	Socket = FTcpSocketBuilder(TEXT("Client Socket"))
+	.AsReusable()
+	.AsBlocking()
+	.WithReceiveBufferSize(ReceiveSize)
+	.WithSendBufferSize(SendSize);
+	ConnectServer(IP, Port);
+	return Socket ? true:false;
+	
 }
 void UTCP_MUE_BP::OnDisConnected(UTCP_MUE_RSThread* pThread)
 {
