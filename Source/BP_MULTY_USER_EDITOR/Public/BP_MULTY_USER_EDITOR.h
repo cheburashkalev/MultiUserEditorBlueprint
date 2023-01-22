@@ -28,7 +28,10 @@ public:
 	virtual void ShutdownModule() override;
 	
 	/** This function will be bound to Command. */
+	
 	void PluginButtonClicked();
+	UFUNCTION()
+	void ReciveDataServer(FString Data);
 
 	//TArray<TSharedRef<SGraphPanel>> FindSGraphPanel();
 	
@@ -64,6 +67,8 @@ public:
 	void UIStartServer();
 	
 	void RegisterMenus();
+	UFUNCTION()
+	void ReciveDataClient(FString Data);
 
 private:
 	TSharedPtr<class FUICommandList> PluginCommands;

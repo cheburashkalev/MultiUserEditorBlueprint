@@ -87,6 +87,8 @@ void FBP_MULTY_USER_EDITORModule::PluginButtonClicked()
 	}
 */
 }
+
+
 TArray<TSharedRef<SGraphTitleBar>> FBP_MULTY_USER_EDITORModule::FindGraphTitleBar() 
 {
 	TArray < TSharedRef<SGraphTitleBar>> ResultGraphs;
@@ -219,11 +221,11 @@ TSharedRef<SWidget> FBP_MULTY_USER_EDITORModule::MakeMUE_BPMenu()
 		SubMenuBuilder.AddEditableText(FText::FromString("ip:port"),
 			FText(),
 			FSlateIcon(),
-			TAttribute< FText >(FText::FromString(NewObject<UMUE_Settings>()->LoadConfig()->ip_port)),
+			TAttribute< FText >(FText::FromString(NewObject<UMUE_Settings>()->LoadConfig()->Server_ip_port)),
 			FOnTextCommitted::CreateLambda([&](const FText text,ETextCommit::Type EnumCommit)
 			{
 				UMUE_Settings* TcpServerSetting = NewObject<UMUE_Settings>();
-				TcpServerSetting->ip_port = text.ToString();
+				TcpServerSetting->Server_ip_port = text.ToString();
 				TcpServerSetting->SaveConfig();
 			}),
 			FOnTextChanged(),
@@ -237,15 +239,17 @@ TSharedRef<SWidget> FBP_MULTY_USER_EDITORModule::MakeMUE_BPMenu()
 			if(IsValid (TcpServerObject))
 			{
 				TcpServerObject->ConditionalBeginDestroy();
+				TcpServerObject->ConditionalFinishDestroy();
 				TcpServerObject = nullptr;
 			}
 			else
 			{
 				TcpServerObject = NewObject<UTCP_MUE_BP>();
-				
+				TcpServerObject->ReceiveSocketDataDelegate.BindRaw(this,&FBP_MULTY_USER_EDITORModule::ReciveDataServer);
+				//TcpClientObject->ReceiveSocketDataDelegate.BindRaw(this,&FBP_MULTY_USER_EDITORModule::ReciveDataClient);
 				FString S_ip;
 				FString S_Port;
-				NewObject<UMUE_Settings>()->LoadConfig()->ip_port.Split(":",&S_ip,&S_Port);
+				NewObject<UMUE_Settings>()->LoadConfig()->Server_ip_port.Split(":",&S_ip,&S_Port);
 				FString ip = S_ip;
 				int32 port = UKismetStringLibrary::Conv_StringToInt(*S_Port);
 				TcpServerObject->CreateServer(ip,port);
@@ -263,12 +267,50 @@ TSharedRef<SWidget> FBP_MULTY_USER_EDITORModule::MakeMUE_BPMenu()
 	
 	MenuBuilder.BeginSection("ClientSettings", TAttribute(FText::FromString("Client/Settings")));
 	FNewMenuDelegate DelegateNewClientMenu;
-	DelegateNewClientMenu.BindLambda([](class FMenuBuilder& SubMenuBuilder) 
+	DelegateNewClientMenu.BindLambda([&](class FMenuBuilder& SubMenuBuilder) 
 	{
-
-		   SubMenuBuilder.AddEditableText(FText::FromString("ip:port"), FText(), FSlateIcon(), TAttribute< FText >(), FOnTextCommitted(), FOnTextChanged(), false);
-		   SubMenuBuilder.AddMenuEntry(LOCTEXT("TryConnect", "TryConnect"),
-		 FText(), FSlateIcon(), FUIAction());
+        //
+		SubMenuBuilder.AddEditableText(FText::FromString("ip:port"),
+           FText(),
+           FSlateIcon(),
+           TAttribute< FText >(FText::FromString(NewObject<UMUE_Settings>()->LoadConfig()->Client_ip_port)),
+           FOnTextCommitted::CreateLambda([&](const FText text,ETextCommit::Type EnumCommit)
+           {
+         	   UMUE_Settings* TcpServerSetting = NewObject<UMUE_Settings>();
+         	   TcpServerSetting->Client_ip_port = text.ToString();
+         	   TcpServerSetting->SaveConfig();
+           }),
+           FOnTextChanged(),
+           IsValid(TcpClientObject));
+		//
+		SubMenuBuilder.AddMenuEntry(IsValid(TcpClientObject)? LOCTEXT("Disconect", "Disconect"):LOCTEXT("Try Connect", "Try Connect"),
+	   FText(), FSlateIcon(),
+	   FUIAction(
+	   FExecuteAction::CreateLambda([&]()
+	   {
+		   if(IsValid (TcpClientObject))
+		   {
+			   TcpClientObject->ConditionalBeginDestroy();
+		   	TcpClientObject->ConditionalFinishDestroy();
+			   TcpClientObject = nullptr;
+		   }
+		   else
+		   {
+			   TcpClientObject = NewObject<UTCP_MUE_BP>();
+		   	   TcpClientObject->ReceiveSocketDataDelegate.BindRaw(this,&FBP_MULTY_USER_EDITORModule::ReciveDataClient);
+			   FString S_ip;
+			   FString S_Port;
+			   NewObject<UMUE_Settings>()->LoadConfig()->Client_ip_port.Split(":",&S_ip,&S_Port);
+			   FString ip = S_ip;
+			   int32 port = UKismetStringLibrary::Conv_StringToInt(*S_Port);
+			   TcpClientObject->CreateClient(ip,port);
+			   UE_LOG(LogTemp, Log, TEXT("UIStartServer"));
+		   }
+	   }),
+		   FCanExecuteAction(),
+			   FGetActionCheckState::CreateLambda([&](){return IsValid (TcpServerObject) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked ;})
+			   ),
+		FName(),EUserInterfaceActionType::RadioButton);
 	});
 
 	MenuBuilder.AddSubMenu(FText::FromString("ClientSettings"),FText::FromString("Settings TCP Server your editor"),DelegateNewClientMenu);
@@ -346,6 +388,17 @@ void FBP_MULTY_USER_EDITORModule::RegisterMenus()
 		}
 	}*/
 	
+}
+void FBP_MULTY_USER_EDITORModule::ReciveDataClient(FString Data)
+{
+
+		UE_LOG(LogTemp, Warning, TEXT(" %s Client"),*Data);
+}
+
+void FBP_MULTY_USER_EDITORModule::ReciveDataServer(FString Data)
+{
+
+	UE_LOG(LogTemp, Warning, TEXT(" %s Server"),*Data);
 }
 
 #undef LOCTEXT_NAMESPACE

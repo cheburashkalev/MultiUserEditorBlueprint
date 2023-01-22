@@ -2,8 +2,8 @@
 
 
 #include "TCP_MUE_BP.h"
-
-
+#include "SocketSubsystem.h"
+#include <string>
 #include "Async/Async.h"
 
 UTCP_MUE_BP::UTCP_MUE_BP(const FObjectInitializer& ObjectInitializer)
@@ -24,9 +24,12 @@ void UTCP_MUE_BP::Close()
 	
 	if (Socket)
 	{
-		for (auto RecThreald : RecThreads)
+
+		for (int32 i = 0; i < RecThreads.Num(); i++)
 		{
-			RecThreald->Stop();
+			auto RecThreald = RecThreads[i];
+			if(RecThreald->IsValidLowLevel())
+				RecThreald->Stop();
 		}
 		Socket->Close();
 		ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->DestroySocket(Socket);
@@ -63,9 +66,10 @@ if(!Socket)
 		UTCP_MUE_RSThread* RSThread = NewObject<UTCP_MUE_RSThread>(this);
 		RecThreads.Add(RSThread);
 		RSThread->ReceiveSocketDataDelegate = ReceiveSocketDataDelegate;
-		RSThread->LostConnectionDelegate.AddDynamic(this, &UTCP_MUE_BP::OnDisConnected);
+		
+		RSThread->LostConnectionDelegate.BindUFunction(this, FName("OnDisConnected"));
 		RSThread->StartThread(RecSocket, SendDataSize, RecDataDize);
-		ClientConnectDelegate.Broadcast(RemoteAddress->ToString(false), RemoteAddress->GetPort());
+		ClientConnectDelegate.Execute(RemoteAddress->ToString(false), RemoteAddress->GetPort());
 	}
 	if (!ReceiveSocketDataDelegate.IsBound())
 	{
@@ -108,32 +112,33 @@ bool UTCP_MUE_BP::CreateServer(const FString& IP, int32 Port, int32 ReceiveSize,
 
 void UTCP_MUE_BP::ConnectServer(const FString& IP, int32 Port)
 {
-
-	AsyncTask(ENamedThreads::AnyBackgroundHiPriTask, [&]()
+	ServerIP = IP;
+	ServerPort = Port;
+	AsyncTask(ENamedThreads::AnyThread, [&]()
 		  {
 			FIPv4Endpoint ServerEndpoint;
-			FIPv4Endpoint::Parse(IP, ServerEndpoint);
+			FIPv4Endpoint::Parse(ServerIP, ServerEndpoint);
 			TSharedPtr<FInternetAddr> addr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
 			bool Success = true;
-			addr->SetIp(*IP, Success);
+			addr->SetIp(*ServerIP, Success);
 			if (!Success)
 			{
-				ConnectedResultDelegate.Broadcast(false);
+				ConnectedResultDelegate.Execute(false);
 				return;
 			}
-			addr->SetPort(Port);
+			addr->SetPort(ServerPort);
 
 			if (!bShutDown && Socket->Connect(*addr))
 			{
 				UTCP_MUE_RSThread* RSThread = NewObject<UTCP_MUE_RSThread>();
 				RecThreads.Add(RSThread);
 				RSThread->ReceiveSocketDataDelegate = ReceiveSocketDataDelegate;
-				RSThread->LostConnectionDelegate.AddDynamic(this, &UTCP_MUE_BP::OnDisConnected);
+				RSThread->LostConnectionDelegate.BindUFunction(this, FName("OnDisConnected"));
 				RSThread->StartThread(Socket, SendDataSize, RecDataDize);
 				UE_LOG(LogTemp, Warning, TEXT("Client Connect Success"));
 				if (ConnectedResultDelegate.IsBound())
 				{
-					ConnectedResultDelegate.Broadcast(true);
+					ConnectedResultDelegate.Execute(true);
 				}
 			    
 			}
@@ -144,7 +149,8 @@ void UTCP_MUE_BP::ConnectServer(const FString& IP, int32 Port)
 				UE_LOG(LogTemp, Warning, TEXT("Connect failed with error code (%d) error (%s)"), LastErr, ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->GetSocketError(LastErr));
 				if (!bShutDown && ConnectedResultDelegate.IsBound())
 				{
-					ConnectedResultDelegate.Broadcast(false);
+					
+					ConnectedResultDelegate.Execute(false);
 				}
 			}
 		 // bConnecting = false;
@@ -160,6 +166,7 @@ bool UTCP_MUE_BP::CreateClient(const FString& IP, int32 Port, int32 ReceiveSize,
 	.AsBlocking()
 	.WithReceiveBufferSize(ReceiveSize)
 	.WithSendBufferSize(SendSize);
+	
 	ConnectServer(IP, Port);
 	return Socket ? true:false;
 	
@@ -170,7 +177,7 @@ void UTCP_MUE_BP::OnDisConnected(UTCP_MUE_RSThread* pThread)
 	RecThreads.Remove(pThread);
 	if (ConnectedResultDelegate.IsBound())
 	{
-		ConnectedResultDelegate.Broadcast(false);
+		ConnectedResultDelegate.Execute(false);
 	}
 }
 //////////////////////////////////////////////////////////////////
@@ -187,7 +194,8 @@ uint32 UTCP_MUE_RSThread::Run()
 		uint32 Size;
 		bool LostConnect = false;
 		ConnectSocket->HasPendingConnection(LostConnect);
-		ConnectSocket->Wait(ESocketWaitConditions::WaitForReadOrWrite, FTimespan(0, 0, 5));
+		FTimespan time = FTimespan(0, 0, 5);
+		ConnectSocket->Wait(ESocketWaitConditions::WaitForReadOrWrite, time);
 		if (LostConnect && !ConnectSocket->HasPendingData(Size))
 		{
 			ReceiveData.Init(0, 100);
@@ -221,7 +229,7 @@ uint32 UTCP_MUE_RSThread::Run()
 				if (ReceiveSocketDataDelegate.IsBound())
 				{
 					//FString ReceivedStr = FString(UTF8_TO_TCHAR(ReceiveData.GetData()));
-					ReceiveSocketDataDelegate.Broadcast(ReceivedStr);
+					ReceiveSocketDataDelegate.Execute(ReceivedStr);
 				}
 				else
 				{
@@ -249,7 +257,7 @@ void UTCP_MUE_RSThread::Stop()
 {
 	if (LostConnectionDelegate.IsBound())
 	{
-		LostConnectionDelegate.Broadcast(this);
+		LostConnectionDelegate.Execute(this);
 	}
 	
 	bThreadStop = true;

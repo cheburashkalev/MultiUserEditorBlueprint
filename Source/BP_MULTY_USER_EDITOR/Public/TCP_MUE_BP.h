@@ -9,16 +9,17 @@
 #include "Common/TcpSocketBuilder.h"
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
+#include "UObject/NoExportTypes.h"
 #include "TCP_MUE_BP.generated.h"
 class FRunableThread;
+class UTCP_MUE_RSThread;
 /**
  * 
  */
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FClientConnectDelegate, FString, RemoteIP, int32, RemotePort);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FConnectedResultDelegate, bool, bSuccess);
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FReceiveSocketDataDelegate, FString, Data); //Receive Connect Callback
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FLostConnectionDelegate, UTCP_MUE_RSThread*, Thread);	//DisConnect Callback
+DECLARE_DELEGATE_TwoParams(FClientConnectDelegate, FString, int32);
+DECLARE_DELEGATE_OneParam(FConnectedResultDelegate, bool);
+DECLARE_DELEGATE_OneParam(FReceiveSocketDataDelegate, FString); //Receive Connect Callback
+DECLARE_DELEGATE_OneParam(FLostConnectionDelegate, UTCP_MUE_RSThread*);	//DisConnect Callback
 
 UCLASS()
 class BP_MULTY_USER_EDITOR_API UTCP_MUE_RSThread : public UObject, public FRunnable
@@ -78,19 +79,22 @@ public:
 	TArray<class UTCP_MUE_RSThread*> RecThreads;
 	class FSocket* Socket;
 	FSocket* RecSocket;
+	FString ServerIP;
+	//UTCP_EditorTimer* t;
+	int32 ServerPort;
 	bool bShutDown;
 	bool bConnecting;
 	int32 SendDataSize;
 	int32 RecDataDize;
 	FTimerHandle ConnectCheckHandler;
 public:
-	UPROPERTY(BlueprintAssignable, VisibleAnywhere, Category = Network)
+	//UPROPERTY(BlueprintAssignable, VisibleAnywhere, Category = Network)
 	FReceiveSocketDataDelegate ReceiveSocketDataDelegate;
 
-	UPROPERTY(BlueprintAssignable, VisibleAnywhere, Category = Network)
+	//UPROPERTY(BlueprintAssignable, VisibleAnywhere, Category = Network)
 	FConnectedResultDelegate ConnectedResultDelegate;
 	
-	UPROPERTY(BlueprintAssignable, VisibleAnywhere, Category = Network)
+	//UPROPERTY(BlueprintAssignable, VisibleAnywhere, Category = Network)
 	FClientConnectDelegate ClientConnectDelegate;
 	
 };

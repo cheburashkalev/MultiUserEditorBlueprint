@@ -21,6 +21,8 @@ void SaveConfig();
 	UMUE_Settings* LoadConfig();
 public:
 	UPROPERTY(Config, EditAnywhere)
-	FString ip_port;
+	FString Server_ip_port;
+	UPROPERTY(Config, EditAnywhere)
+	FString Client_ip_port;
 	
 };

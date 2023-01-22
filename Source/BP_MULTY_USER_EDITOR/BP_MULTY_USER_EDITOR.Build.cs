@@ -7,7 +7,7 @@ public class BP_MULTY_USER_EDITOR : ModuleRules
 	public BP_MULTY_USER_EDITOR(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-		
+		bEnableExceptions = true;
 		PublicIncludePaths.AddRange(
 			new string[] {
 

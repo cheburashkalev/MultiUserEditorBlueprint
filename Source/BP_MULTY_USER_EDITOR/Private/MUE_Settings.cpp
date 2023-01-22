@@ -19,10 +19,13 @@ void UMUE_Settings::SaveConfig()
 	if (GConfig)
 	{
 		GConfig->SetString(TEXT("/Script/BP_MULTY_USER_EDITOR.MUE_Settings"),
-			TEXT("ip_port"),
-			*ip_port,
+			TEXT("Server_ip_port"),
+			*Server_ip_port,
 			gameConfigPath);
- 
+		GConfig->SetString(TEXT("/Script/BP_MULTY_USER_EDITOR.MUE_Settings"),
+				   TEXT("Client_ip_port"),
+				   *Client_ip_port,
+				   gameConfigPath);
 		GConfig->Flush(true, gameConfigPath);
 		GEditor->GetEditorSubsystem<UEditorConfigSubsystem>()->TryUpdateDefaultConfigFile(gameConfigPath);
 	}
@@ -36,9 +39,13 @@ UMUE_Settings* UMUE_Settings::LoadConfig()
 	if (GConfig)
 	{
 		GConfig->GetString(TEXT("/Script/BP_MULTY_USER_EDITOR.MUE_Settings"),
-			TEXT("ip_port"),
-			ip_port,
+			TEXT("Server_ip_port"),
+			Server_ip_port,
 			gameConfigPath);
+		GConfig->GetString(TEXT("/Script/BP_MULTY_USER_EDITOR.MUE_Settings"),
+	TEXT("Client_ip_port"),
+	Client_ip_port,
+	gameConfigPath);
  
 		GConfig->Flush(true, gameConfigPath);
 	}
